@@ -1,3 +1,7 @@
 fastapi
 uvicorn
 openai
+pandas
+numpy
+faiss-cpu
+python-multipart
