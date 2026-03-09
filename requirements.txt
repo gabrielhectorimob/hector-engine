@@ -1,7 +1,3 @@
 fastapi
 uvicorn
 openai
-qdrant-client
-pandas
-openpyxl
-python-dotenv
