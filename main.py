@@ -1,136 +1,124 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import Dict, List, Any
+import os
+from fastapi import FastAPI, Request
+from openai import OpenAI
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct
+
+# ==========================================
+# CONFIGURAÇÕES
+# ==========================================
+
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+COLLECTION_NAME = "hector_brain"
+
+# ==========================================
+# CLIENTES
+# ==========================================
+
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+qdrant = QdrantClient(
+    url=QDRANT_URL,
+    api_key=QDRANT_API_KEY
+)
+
+# ==========================================
+# APP
+# ==========================================
 
 app = FastAPI()
 
-# memória global do modelo
-model_memory: Dict[str, List[Dict[str, Any]]] = {}
+# ==========================================
+# FUNÇÃO GERAR EMBEDDING
+# ==========================================
 
-# ------------------------------
-# MODELOS
-# ------------------------------
+def gerar_embedding(texto):
 
-class Question(BaseModel):
-    question: str
+    response = openai_client.embeddings.create(
+        model="text-embedding-3-large",
+        input=texto
+    )
 
-class ModelUpload(BaseModel):
-    model: Dict[str, List[Dict[str, Any]]]
+    return response.data[0].embedding
 
 
-# ------------------------------
-# STATUS
-# ------------------------------
+# ==========================================
+# INDEXAÇÃO
+# ==========================================
+
+@app.post("/hector/indexar")
+async def indexar_documentos(request: Request):
+
+    dados = await request.json()
+
+    points = []
+
+    for i, doc in enumerate(dados):
+
+        texto = doc["texto"]
+
+        embedding = gerar_embedding(texto)
+
+        points.append(
+            PointStruct(
+                id=i,
+                vector=embedding,
+                payload=doc
+            )
+        )
+
+    qdrant.upsert(
+        collection_name=COLLECTION_NAME,
+        points=points
+    )
+
+    return {
+        "status": "indexado",
+        "total_documentos": len(points)
+    }
+
+
+# ==========================================
+# BUSCA SEMÂNTICA
+# ==========================================
+
+@app.post("/hector/buscar")
+async def buscar_contexto(request: Request):
+
+    body = await request.json()
+
+    pergunta = body["pergunta"]
+
+    embedding = gerar_embedding(pergunta)
+
+    search = qdrant.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=embedding,
+        limit=5
+    )
+
+    resultados = []
+
+    for r in search:
+        resultados.append(r.payload)
+
+    return {
+        "contexto": resultados
+    }
+
+
+# ==========================================
+# HEALTH CHECK
+# ==========================================
 
 @app.get("/")
-def root():
-    return {"message": "Hector Engine running"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-# ------------------------------
-# UPLOAD DO MODELO
-# ------------------------------
-
-@app.post("/upload-model")
-def upload_model(data: ModelUpload):
-
-    global model_memory
-
-    model_memory = data.model
-
-    rows_per_tab = {}
-
-    for tab, rows in model_memory.items():
-        rows_per_tab[tab] = len(rows)
+def status():
 
     return {
-        "status": "model_loaded",
-        "tabs_received": list(model_memory.keys()),
-        "rows_per_tab": rows_per_tab
-    }
-
-
-# ------------------------------
-# DEBUG MODELO COMPLETO
-# ------------------------------
-
-@app.get("/debug-model")
-def debug_model():
-
-    return {
-        "tabs": list(model_memory.keys()),
-        "data": model_memory
-    }
-
-
-# ------------------------------
-# AMOSTRA DOS DADOS
-# ------------------------------
-
-@app.get("/model-sample")
-def model_sample():
-
-    sample = {}
-
-    for tab, rows in model_memory.items():
-        sample[tab] = rows[:5]
-
-    return sample
-
-
-# ------------------------------
-# AUDITORIA DO MODELO
-# ------------------------------
-
-@app.get("/model-audit")
-def model_audit():
-
-    audit = {}
-
-    total_rows = 0
-    empty_fields = 0
-    units_detected = set()
-    domains_detected = set()
-
-    for tab, rows in model_memory.items():
-
-        audit[tab] = len(rows)
-        total_rows += len(rows)
-
-        for row in rows:
-
-            if "UNIDADE" in row and row["UNIDADE"]:
-                units_detected.add(row["UNIDADE"])
-
-            if "DOMINIO" in row and row["DOMINIO"]:
-                domains_detected.add(row["DOMINIO"])
-
-            for value in row.values():
-                if value == "" or value is None:
-                    empty_fields += 1
-
-    return {
-        "tabs": len(model_memory),
-        "rows_total": total_rows,
-        "rows_per_tab": audit,
-        "empty_fields": empty_fields,
-        "units_detected": list(units_detected),
-        "domains_detected": list(domains_detected)
-    }
-
-
-# ------------------------------
-# QUERY (PERGUNTAS)
-# ------------------------------
-
-@app.post("/query")
-def query(q: Question):
-
-    return {
-        "answer": f"Hector recebeu a pergunta: {q.question}",
-        "model_tabs_loaded": list(model_memory.keys())
+        "status": "HECTOR ENGINE ONLINE",
+        "vector_db": "Qdrant",
+        "embeddings": "OpenAI"
     }
