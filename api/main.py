@@ -1,35 +1,33 @@
+import os
 from fastapi import FastAPI
 from openai import OpenAI
-import os
 
-from rag.search import search
+# pegar API key do ambiente
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY not set")
+
+# criar cliente
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# criar app
 app = FastAPI()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.get("/")
 def root():
-    return {"status": "HECTOR ENGINE ONLINE"}
+    return {"status": "running"}
 
-@app.get("/chat")
-def chat(msg: str):
 
-    context = search(msg)
-
-    prompt = f"""
-    Você é Hector, especialista em loteamentos.
-
-    Contexto:
-    {context}
-
-    Pergunta:
-    {msg}
-    """
-
+@app.get("/ask")
+def ask_ai(question: str):
+    
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role":"user","content":prompt}]
+        messages=[
+            {"role": "user", "content": question}
+        ]
     )
 
     return {
