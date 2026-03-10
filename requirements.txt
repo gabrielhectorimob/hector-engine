@@ -1,6 +1,4 @@
 fastapi
 uvicorn
 openai
-qdrant-client
-pandas
-python-dotenv
+pydantic
