@@ -9,15 +9,15 @@ app = FastAPI()
 # =========================
 # OPENAI CONFIG
 # =========================
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-if not OPENAI_API_KEY:
-    raise Exception("OPENAI_API_KEY not found in environment variables")
+if OPENAI_API_KEY is None:
+    raise Exception("OPENAI_API_KEY not configured")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # =========================
-# MODELO DE ENTRADA
+# MODELO
 # =========================
 class Query(BaseModel):
     question: str
@@ -35,16 +35,15 @@ def health():
 
 @app.post("/query")
 def query(data: Query):
+
     try:
 
-        print("Pergunta recebida:", data.question)
-
-        response = client.chat.completions.create(
+        completion = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": "Você é o Hector, especialista em loteamentos imobiliários."
+                    "content": "Você é o Hector, especialista em loteamentos e análise imobiliária."
                 },
                 {
                     "role": "user",
@@ -53,17 +52,12 @@ def query(data: Query):
             ]
         )
 
-        answer = response.choices[0].message.content
-
-        print("Resposta gerada:", answer)
-
         return {
-            "answer": answer
+            "answer": completion.choices[0].message.content
         }
 
     except Exception as e:
 
-        print("ERRO REAL:")
         traceback.print_exc()
 
         raise HTTPException(
