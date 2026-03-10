@@ -25,7 +25,9 @@ OPENAI_API_KEY = (
 OPENAI_URL = "https://api.openai.com/v1/responses"
 
 START_TIME = time.time()
+
 CHAT_REQUEST_COUNT = 0
+CHAT_ERROR_COUNT = 0
 
 
 class ChatRequest(BaseModel):
@@ -63,7 +65,8 @@ def metrics():
         "version": ENGINE_VERSION,
         "model": OPENAI_MODEL,
         "uptime_seconds": uptime,
-        "chat_requests_total": CHAT_REQUEST_COUNT
+        "chat_requests_total": CHAT_REQUEST_COUNT,
+        "chat_errors_total": CHAT_ERROR_COUNT
     }
 
 
@@ -71,6 +74,8 @@ def metrics():
 def chat(req: ChatRequest):
 
     global CHAT_REQUEST_COUNT
+    global CHAT_ERROR_COUNT
+
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
@@ -84,6 +89,8 @@ def chat(req: ChatRequest):
     pergunta = pergunta.strip()
 
     if pergunta == "":
+        CHAT_ERROR_COUNT += 1
+
         processing_ms = int((time.time() - start_processing) * 1000)
         server_uptime = int(time.time() - START_TIME)
 
@@ -154,6 +161,8 @@ def chat(req: ChatRequest):
         }
 
     except Exception as e:
+
+        CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
         question_length = len(pergunta)
