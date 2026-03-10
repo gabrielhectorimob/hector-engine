@@ -74,6 +74,7 @@ def chat(req: ChatRequest):
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
+
     timestamp = int(time.time())
     timestamp_iso = datetime.now(timezone.utc).isoformat()
 
@@ -106,8 +107,11 @@ def chat(req: ChatRequest):
             resposta = str(data)
 
         processing_ms = int((time.time() - start_processing) * 1000)
+
         question_length = len(req.pergunta)
         response_length = len(resposta)
+
+        server_uptime = int(time.time() - START_TIME)
 
         return {
             "status": "ok",
@@ -116,6 +120,7 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
+            "server_uptime": server_uptime,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
@@ -129,6 +134,7 @@ def chat(req: ChatRequest):
 
         processing_ms = int((time.time() - start_processing) * 1000)
         question_length = len(req.pergunta)
+        server_uptime = int(time.time() - START_TIME)
 
         return {
             "status": "error",
@@ -137,6 +143,7 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
+            "server_uptime": server_uptime,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
