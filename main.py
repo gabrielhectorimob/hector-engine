@@ -7,6 +7,7 @@ import uuid
 
 app = FastAPI()
 
+API_VERSION = "1.0"
 ENGINE_NAME = "hector-engine"
 ENGINE_VERSION = "1.0"
 OPENAI_MODEL = "gpt-4.1-mini"
@@ -106,6 +107,7 @@ def chat(req: ChatRequest):
 
         return {
             "status": "ok",
+            "api_version": API_VERSION,
             "request_id": request_id,
             "timestamp": timestamp,
             "processing_ms": processing_ms,
@@ -121,6 +123,7 @@ def chat(req: ChatRequest):
 
         return {
             "status": "error",
+            "api_version": API_VERSION,
             "request_id": request_id,
             "timestamp": timestamp,
             "processing_ms": processing_ms,
