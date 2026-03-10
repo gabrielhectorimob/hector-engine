@@ -74,7 +74,6 @@ def chat(req: ChatRequest):
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
-
     timestamp = int(time.time())
     timestamp_iso = datetime.now(timezone.utc).isoformat()
 
@@ -101,13 +100,13 @@ def chat(req: ChatRequest):
         if "output" in data:
             try:
                 resposta = data["output"][0]["content"][0]["text"]
-            except:
+            except Exception:
                 resposta = str(data)
         else:
             resposta = str(data)
 
         processing_ms = int((time.time() - start_processing) * 1000)
-
+        question_length = len(req.pergunta)
         response_length = len(resposta)
 
         return {
@@ -121,6 +120,7 @@ def chat(req: ChatRequest):
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
             "pergunta": req.pergunta,
+            "question_length": question_length,
             "response_length": response_length,
             "resposta": resposta
         }
@@ -128,6 +128,7 @@ def chat(req: ChatRequest):
     except Exception as e:
 
         processing_ms = int((time.time() - start_processing) * 1000)
+        question_length = len(req.pergunta)
 
         return {
             "status": "error",
@@ -140,5 +141,6 @@ def chat(req: ChatRequest):
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
             "pergunta": req.pergunta,
+            "question_length": question_length,
             "erro": str(e)
         }
