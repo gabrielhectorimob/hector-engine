@@ -1,47 +1,55 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
+import os
 import traceback
 
 app = FastAPI()
 
-client = OpenAI()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    raise Exception("OPENAI_API_KEY not found")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 class Query(BaseModel):
     question: str
+
 
 @app.get("/")
 def root():
     return {"engine": "hector running"}
 
-def run_query(question: str):
 
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Você é o Hector, especialista em loteamentos."},
-            {"role": "user", "content": question}
-        ]
-    )
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
-    return response.choices[0].message.content
 
 @app.post("/query")
-async def query(q: Query):
-
+def query(data: Query):
     try:
 
-        answer = run_query(q.question)
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Você é o Hector, especialista em loteamentos imobiliários."
+                },
+                {
+                    "role": "user",
+                    "content": data.question
+                }
+            ]
+        )
 
-        return {
-            "answer": answer
-        }
+        answer = response.choices[0].message.content
+
+        return {"answer": answer}
 
     except Exception as e:
-
         traceback.print_exc()
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail="Connection error.")
