@@ -2,19 +2,14 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-import httpx
 from fastapi import APIRouter, Request
 
 from app.api.schemas.chat import ChatRequest
 from app.api.services.request_context import get_client_ip, get_request_source
 from app.core import config
-
-# NOVO: Hector Brain
 from app.services.hector_brain.orchestrator import HectorBrainOrchestrator
 
 router = APIRouter()
-
-# NOVO: instância do Brain
 brain = HectorBrainOrchestrator()
 
 
@@ -60,14 +55,6 @@ def chat(req: ChatRequest, request: Request):
     pergunta = req.pergunta or ""
     pergunta = pergunta.strip()
 
-    # EXECUTA O BRAIN
-    brain_result = brain.process(pergunta)
-
-    brain_classification = brain_result.classification.model_dump()
-    brain_intent = brain_result.intent.model_dump()
-    brain_routing = brain_result.routing.model_dump()
-    brain_execution_plan = brain_result.execution_plan.model_dump()
-
     if is_rate_limited(client_ip):
         config.CHAT_ERROR_COUNT += 1
 
@@ -96,12 +83,6 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": 0,
             "tokens_output": 0,
             "tokens_total": 0,
-            "brain": {
-                "classification": brain_classification,
-                "intent": brain_intent,
-                "routing": brain_routing,
-                "execution_plan": brain_execution_plan,
-            },
             "erro": "rate_limit_exceeded",
         }
 
@@ -133,66 +114,27 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": 0,
             "tokens_output": 0,
             "tokens_total": 0,
-            "brain": {
-                "classification": brain_classification,
-                "intent": brain_intent,
-                "routing": brain_routing,
-                "execution_plan": brain_execution_plan,
-            },
             "erro": "pergunta_vazia",
         }
 
-    headers = {
-        "Authorization": f"Bearer {config.OPENAI_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": config.OPENAI_MODEL,
-        "input": pergunta,
-    }
-
     try:
-        openai_start = time.time()
+        brain_result = brain.process(pergunta)
 
-        with httpx.Client(timeout=30.0) as client:
-            response = client.post(
-                config.OPENAI_URL,
-                headers=headers,
-                json=payload,
-            )
+        brain_classification = brain_result.classification.model_dump()
+        brain_intent = brain_result.intent.model_dump()
+        brain_routing = brain_result.routing.model_dump()
+        brain_execution_plan = brain_result.execution_plan.model_dump()
 
-        openai_latency_ms = int((time.time() - openai_start) * 1000)
-
-        config.OPENAI_LATENCIES.append(openai_latency_ms)
-        config.OPENAI_STATUS = "ok"
-
-        data = response.json()
-
-        resposta = ""
-
-        if "output" in data:
-            try:
-                resposta = data["output"][0]["content"][0]["text"]
-            except Exception:
-                resposta = str(data)
-        else:
-            resposta = str(data)
-
-        usage = data.get("usage", {})
-
-        tokens_input = usage.get("input_tokens", 0)
-        tokens_output = usage.get("output_tokens", 0)
-        tokens_total = usage.get("total_tokens", 0)
+        resposta = brain_result.final_answer
 
         processing_ms = int((time.time() - start_processing) * 1000)
         update_processing_metrics(processing_ms)
 
         config.CHAT_SUCCESS_COUNT += 1
-        config.TOTAL_RESPONSE_CHARS += len(resposta)
+        config.TOTAL_RESPONSE_CHARS += len(str(resposta))
 
         question_length = len(pergunta)
-        response_length = len(resposta)
+        response_length = len(str(resposta))
         server_uptime = int(time.time() - config.START_TIME)
 
         return {
@@ -202,7 +144,7 @@ def chat(req: ChatRequest, request: Request):
             "timestamp": timestamp,
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
-            "openai_latency_ms": openai_latency_ms,
+            "openai_latency_ms": 0,
             "server_uptime": server_uptime,
             "chat_requests_total": config.CHAT_REQUEST_COUNT,
             "engine": config.ENGINE_NAME,
@@ -213,9 +155,9 @@ def chat(req: ChatRequest, request: Request):
             "pergunta": pergunta,
             "question_length": question_length,
             "response_length": response_length,
-            "tokens_input": tokens_input,
-            "tokens_output": tokens_output,
-            "tokens_total": tokens_total,
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "tokens_total": 0,
             "brain": {
                 "classification": brain_classification,
                 "intent": brain_intent,
@@ -255,11 +197,5 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": 0,
             "tokens_output": 0,
             "tokens_total": 0,
-            "brain": {
-                "classification": brain_classification,
-                "intent": brain_intent,
-                "routing": brain_routing,
-                "execution_plan": brain_execution_plan,
-            },
             "erro": str(e),
         }
