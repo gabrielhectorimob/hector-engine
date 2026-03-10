@@ -29,8 +29,8 @@ ENGINE_STARTED_AT = datetime.now(timezone.utc).isoformat()
 ENGINE_INSTANCE_ID = str(uuid.uuid4())[:8]
 
 CHAT_REQUEST_COUNT = 0
-CHAT_ERROR_COUNT = 0
 CHAT_SUCCESS_COUNT = 0
+CHAT_ERROR_COUNT = 0
 TOTAL_PROCESSING_MS = 0
 
 
@@ -62,7 +62,6 @@ def engine():
 
 @app.get("/metrics")
 def metrics():
-
     uptime = int(time.time() - START_TIME)
 
     avg_processing_ms = 0
@@ -72,6 +71,10 @@ def metrics():
     requests_per_minute = 0
     if uptime > 0:
         requests_per_minute = round((CHAT_REQUEST_COUNT / uptime) * 60, 2)
+
+    success_rate = 0
+    if CHAT_REQUEST_COUNT > 0:
+        success_rate = round(CHAT_SUCCESS_COUNT / CHAT_REQUEST_COUNT, 4)
 
     return {
         "engine": ENGINE_NAME,
@@ -84,25 +87,23 @@ def metrics():
         "chat_success_total": CHAT_SUCCESS_COUNT,
         "chat_errors_total": CHAT_ERROR_COUNT,
         "avg_processing_ms": avg_processing_ms,
-        "requests_per_minute": requests_per_minute
+        "requests_per_minute": requests_per_minute,
+        "success_rate": success_rate
     }
 
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-
     global CHAT_REQUEST_COUNT
-    global CHAT_ERROR_COUNT
     global CHAT_SUCCESS_COUNT
+    global CHAT_ERROR_COUNT
     global TOTAL_PROCESSING_MS
 
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
-
     timestamp = int(time.time())
     timestamp_iso = datetime.now(timezone.utc).isoformat()
-
     start_processing = time.time()
 
     pergunta = req.pergunta or ""
@@ -113,7 +114,6 @@ def chat(req: ChatRequest):
 
         processing_ms = int((time.time() - start_processing) * 1000)
         TOTAL_PROCESSING_MS += processing_ms
-
         server_uptime = int(time.time() - START_TIME)
 
         return {
@@ -161,7 +161,6 @@ def chat(req: ChatRequest):
 
         processing_ms = int((time.time() - start_processing) * 1000)
         TOTAL_PROCESSING_MS += processing_ms
-
         CHAT_SUCCESS_COUNT += 1
 
         question_length = len(pergunta)
@@ -187,12 +186,10 @@ def chat(req: ChatRequest):
         }
 
     except Exception as e:
-
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
         TOTAL_PROCESSING_MS += processing_ms
-
         question_length = len(pergunta)
         server_uptime = int(time.time() - START_TIME)
 
