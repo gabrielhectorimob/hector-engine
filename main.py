@@ -105,6 +105,7 @@ def chat(req: ChatRequest):
         processing_ms = int((time.time() - start_processing) * 1000)
 
         return {
+            "status": "ok",
             "request_id": request_id,
             "timestamp": timestamp,
             "processing_ms": processing_ms,
@@ -119,6 +120,7 @@ def chat(req: ChatRequest):
         processing_ms = int((time.time() - start_processing) * 1000)
 
         return {
+            "status": "error",
             "request_id": request_id,
             "timestamp": timestamp,
             "processing_ms": processing_ms,
