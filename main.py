@@ -1,11 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
+import os
 
 app = FastAPI()
 
 client = OpenAI()
-
 
 class Query(BaseModel):
     question: str
@@ -19,12 +19,17 @@ def root():
 @app.post("/query")
 def run_query(data: Query):
     try:
-
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": "Você é o Hector, especialista em loteamentos."},
-                {"role": "user", "content": data.question}
+                {
+                    "role": "system",
+                    "content": "Você é o Hector, especialista em loteamentos."
+                },
+                {
+                    "role": "user",
+                    "content": data.question
+                }
             ]
         )
 
@@ -33,4 +38,5 @@ def run_query(data: Query):
         }
 
     except Exception as e:
+        print("OPENAI ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
