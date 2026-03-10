@@ -72,6 +72,7 @@ def chat(req: ChatRequest):
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
+    timestamp = int(time.time())
 
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -101,6 +102,7 @@ def chat(req: ChatRequest):
 
         return {
             "request_id": request_id,
+            "timestamp": timestamp,
             "resposta": resposta
         }
 
@@ -108,5 +110,6 @@ def chat(req: ChatRequest):
 
         return {
             "request_id": request_id,
+            "timestamp": timestamp,
             "erro": str(e)
         }
