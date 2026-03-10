@@ -4,6 +4,7 @@ import os
 import httpx
 import time
 import uuid
+import psutil
 from datetime import datetime, timezone
 
 app = FastAPI()
@@ -34,6 +35,8 @@ CHAT_ERROR_COUNT = 0
 
 TOTAL_PROCESSING_MS = 0
 TOTAL_RESPONSE_CHARS = 0
+
+PROCESSING_TIMES = []
 
 
 class ChatRequest(BaseModel):
@@ -87,6 +90,16 @@ def metrics():
     if CHAT_SUCCESS_COUNT > 0:
         avg_response_length = int(TOTAL_RESPONSE_CHARS / CHAT_SUCCESS_COUNT)
 
+    p95_processing_ms = 0
+    if len(PROCESSING_TIMES) > 0:
+        sorted_times = sorted(PROCESSING_TIMES)
+        index = int(len(sorted_times) * 0.95) - 1
+        index = max(index, 0)
+        p95_processing_ms = sorted_times[index]
+
+    process = psutil.Process(os.getpid())
+    engine_memory_mb = round(process.memory_info().rss / 1024 / 1024, 2)
+
     return {
         "engine": ENGINE_NAME,
         "version": ENGINE_VERSION,
@@ -101,7 +114,9 @@ def metrics():
         "requests_per_minute": requests_per_minute,
         "success_rate": success_rate,
         "error_rate": error_rate,
-        "avg_response_length": avg_response_length
+        "avg_response_length": avg_response_length,
+        "p95_processing_ms": p95_processing_ms,
+        "engine_memory_mb": engine_memory_mb
     }
 
 
@@ -130,7 +145,9 @@ def chat(req: ChatRequest):
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
+
         TOTAL_PROCESSING_MS += processing_ms
+        PROCESSING_TIMES.append(processing_ms)
 
         server_uptime = int(time.time() - START_TIME)
 
@@ -178,7 +195,9 @@ def chat(req: ChatRequest):
             resposta = str(data)
 
         processing_ms = int((time.time() - start_processing) * 1000)
+
         TOTAL_PROCESSING_MS += processing_ms
+        PROCESSING_TIMES.append(processing_ms)
 
         CHAT_SUCCESS_COUNT += 1
         TOTAL_RESPONSE_CHARS += len(resposta)
@@ -211,7 +230,9 @@ def chat(req: ChatRequest):
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
+
         TOTAL_PROCESSING_MS += processing_ms
+        PROCESSING_TIMES.append(processing_ms)
 
         question_length = len(pergunta)
 
