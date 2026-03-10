@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import os
 import httpx
 import time
+import uuid
 
 app = FastAPI()
 
@@ -70,6 +71,8 @@ def chat(req: ChatRequest):
     global CHAT_REQUEST_COUNT
     CHAT_REQUEST_COUNT += 1
 
+    request_id = str(uuid.uuid4())[:8]
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
@@ -97,11 +100,13 @@ def chat(req: ChatRequest):
             resposta = str(data)
 
         return {
+            "request_id": request_id,
             "resposta": resposta
         }
 
     except Exception as e:
 
         return {
+            "request_id": request_id,
             "erro": str(e)
         }
