@@ -9,7 +9,13 @@ from app.api.schemas.chat import ChatRequest
 from app.api.services.request_context import get_client_ip, get_request_source
 from app.core import config
 
+# NOVO: Hector Brain
+from app.services.hector_brain.orchestrator import HectorBrainOrchestrator
+
 router = APIRouter()
+
+# NOVO: instância do Brain
+brain = HectorBrainOrchestrator()
 
 
 def is_rate_limited(client_ip: str) -> bool:
@@ -54,6 +60,14 @@ def chat(req: ChatRequest, request: Request):
     pergunta = req.pergunta or ""
     pergunta = pergunta.strip()
 
+    # EXECUTA O BRAIN
+    brain_result = brain.process(pergunta)
+
+    brain_classification = brain_result.classification.model_dump()
+    brain_intent = brain_result.intent.model_dump()
+    brain_routing = brain_result.routing.model_dump()
+    brain_execution_plan = brain_result.execution_plan.model_dump()
+
     if is_rate_limited(client_ip):
         config.CHAT_ERROR_COUNT += 1
 
@@ -82,6 +96,12 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": 0,
             "tokens_output": 0,
             "tokens_total": 0,
+            "brain": {
+                "classification": brain_classification,
+                "intent": brain_intent,
+                "routing": brain_routing,
+                "execution_plan": brain_execution_plan,
+            },
             "erro": "rate_limit_exceeded",
         }
 
@@ -113,6 +133,12 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": 0,
             "tokens_output": 0,
             "tokens_total": 0,
+            "brain": {
+                "classification": brain_classification,
+                "intent": brain_intent,
+                "routing": brain_routing,
+                "execution_plan": brain_execution_plan,
+            },
             "erro": "pergunta_vazia",
         }
 
@@ -190,6 +216,12 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": tokens_input,
             "tokens_output": tokens_output,
             "tokens_total": tokens_total,
+            "brain": {
+                "classification": brain_classification,
+                "intent": brain_intent,
+                "routing": brain_routing,
+                "execution_plan": brain_execution_plan,
+            },
             "resposta": resposta,
         }
 
@@ -223,5 +255,11 @@ def chat(req: ChatRequest, request: Request):
             "tokens_input": 0,
             "tokens_output": 0,
             "tokens_total": 0,
+            "brain": {
+                "classification": brain_classification,
+                "intent": brain_intent,
+                "routing": brain_routing,
+                "execution_plan": brain_execution_plan,
+            },
             "erro": str(e),
         }
