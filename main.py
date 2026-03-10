@@ -35,9 +35,9 @@ def query(data: Query):
             ]
         )
 
-        answer = response.choices[0].message.content
-
-        return {"answer": answer}
+        return {
+            "answer": response.choices[0].message.content
+        }
 
     except Exception as e:
 
