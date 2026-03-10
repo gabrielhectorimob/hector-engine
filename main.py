@@ -26,6 +26,15 @@ def root():
     return {"status": "running"}
 
 
+@app.get("/health")
+def health():
+
+    return {
+        "server": "ok",
+        "openai_key_loaded": bool(OPENAI_API_KEY)
+    }
+
+
 @app.post("/chat")
 def chat(req: ChatRequest):
 
