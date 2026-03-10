@@ -2,16 +2,17 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
 import os
-import traceback
 
 app = FastAPI()
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+# pegar chave da variável de ambiente
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
     raise Exception("OPENAI_API_KEY not configured")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 class Query(BaseModel):
     question: str
@@ -19,31 +20,30 @@ class Query(BaseModel):
 
 @app.get("/")
 def root():
-    return {"engine": "hector running"}
+    return {"status": "running"}
 
 
 @app.post("/query")
-def query(data: Query):
-
+def run_query(data: Query):
     try:
 
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": "Você é o Hector especialista em loteamentos."},
-                {"role": "user", "content": data.question}
+                {
+                    "role": "system",
+                    "content": "Você é o Hector, especialista em loteamentos."
+                },
+                {
+                    "role": "user",
+                    "content": data.question
+                }
             ]
         )
 
         return {
-            "answer": response.choices[0].message.content
+            "response": response.choices[0].message.content
         }
 
     except Exception as e:
-
-        traceback.print_exc()
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
