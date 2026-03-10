@@ -109,6 +109,7 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "processing_ms": processing_ms,
             "model": OPENAI_MODEL,
+            "engine_version": ENGINE_VERSION,
             "resposta": resposta
         }
 
@@ -121,5 +122,6 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "processing_ms": processing_ms,
             "model": OPENAI_MODEL,
+            "engine_version": ENGINE_VERSION,
             "erro": str(e)
         }
