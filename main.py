@@ -28,6 +28,7 @@ START_TIME = time.time()
 
 CHAT_REQUEST_COUNT = 0
 CHAT_ERROR_COUNT = 0
+TOTAL_PROCESSING_MS = 0
 
 
 class ChatRequest(BaseModel):
@@ -60,13 +61,18 @@ def engine():
 def metrics():
     uptime = int(time.time() - START_TIME)
 
+    avg_processing_ms = 0
+    if CHAT_REQUEST_COUNT > 0:
+        avg_processing_ms = int(TOTAL_PROCESSING_MS / CHAT_REQUEST_COUNT)
+
     return {
         "engine": ENGINE_NAME,
         "version": ENGINE_VERSION,
         "model": OPENAI_MODEL,
         "uptime_seconds": uptime,
         "chat_requests_total": CHAT_REQUEST_COUNT,
-        "chat_errors_total": CHAT_ERROR_COUNT
+        "chat_errors_total": CHAT_ERROR_COUNT,
+        "avg_processing_ms": avg_processing_ms
     }
 
 
@@ -75,6 +81,7 @@ def chat(req: ChatRequest):
 
     global CHAT_REQUEST_COUNT
     global CHAT_ERROR_COUNT
+    global TOTAL_PROCESSING_MS
 
     CHAT_REQUEST_COUNT += 1
 
@@ -92,6 +99,8 @@ def chat(req: ChatRequest):
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
+        TOTAL_PROCESSING_MS += processing_ms
+
         server_uptime = int(time.time() - START_TIME)
 
         return {
@@ -138,6 +147,8 @@ def chat(req: ChatRequest):
             resposta = str(data)
 
         processing_ms = int((time.time() - start_processing) * 1000)
+        TOTAL_PROCESSING_MS += processing_ms
+
         question_length = len(pergunta)
         response_length = len(resposta)
         server_uptime = int(time.time() - START_TIME)
@@ -165,6 +176,8 @@ def chat(req: ChatRequest):
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
+        TOTAL_PROCESSING_MS += processing_ms
+
         question_length = len(pergunta)
         server_uptime = int(time.time() - START_TIME)
 
