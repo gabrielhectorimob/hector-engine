@@ -5,13 +5,8 @@ import os
 
 app = FastAPI()
 
-# pegar chave da variável de ambiente
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not OPENAI_API_KEY:
-    raise Exception("OPENAI_API_KEY not configured")
-
-client = OpenAI(api_key=OPENAI_API_KEY)
+# cria cliente OpenAI usando variável de ambiente
+client = OpenAI()
 
 
 class Query(BaseModel):
@@ -26,7 +21,6 @@ def root():
 @app.post("/query")
 def run_query(data: Query):
     try:
-
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
