@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import os
 import httpx
+import time
 
 app = FastAPI()
 
@@ -19,6 +20,9 @@ OPENAI_API_KEY = (
 )
 
 OPENAI_URL = "https://api.openai.com/v1/responses"
+
+START_TIME = time.time()
+CHAT_REQUEST_COUNT = 0
 
 
 class ChatRequest(BaseModel):
@@ -47,8 +51,24 @@ def engine():
     }
 
 
+@app.get("/metrics")
+def metrics():
+    uptime = int(time.time() - START_TIME)
+
+    return {
+        "engine": ENGINE_NAME,
+        "version": ENGINE_VERSION,
+        "model": OPENAI_MODEL,
+        "uptime_seconds": uptime,
+        "chat_requests_total": CHAT_REQUEST_COUNT
+    }
+
+
 @app.post("/chat")
 def chat(req: ChatRequest):
+
+    global CHAT_REQUEST_COUNT
+    CHAT_REQUEST_COUNT += 1
 
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -84,5 +104,4 @@ def chat(req: ChatRequest):
 
         return {
             "erro": str(e)
-        }
         }
