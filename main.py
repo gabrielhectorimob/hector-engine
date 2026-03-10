@@ -42,4 +42,13 @@ def chat(req: ChatRequest):
     with httpx.Client(timeout=30.0) as client:
         r = client.post(OPENAI_URL, headers=headers, json=payload)
 
-    return r.json()
+    data = r.json()
+
+    resposta = ""
+
+    try:
+        resposta = data["output"][0]["content"][0]["text"]
+    except:
+        resposta = str(data)
+
+    return {"resposta": resposta}
