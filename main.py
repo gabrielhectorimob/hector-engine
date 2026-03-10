@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import os
 import httpx
@@ -13,6 +13,7 @@ API_VERSION = "1.0"
 ENGINE_NAME = "hector-engine"
 ENGINE_VERSION = "1.0"
 OPENAI_MODEL = "gpt-4.1-mini"
+BUILD_VERSION = os.getenv("BUILD_VERSION", "dev")
 
 RAW_KEY = os.getenv("OPENAI_API_KEY", "")
 
@@ -29,18 +30,78 @@ START_TIME = time.time()
 ENGINE_STARTED_AT = datetime.now(timezone.utc).isoformat()
 ENGINE_INSTANCE_ID = str(uuid.uuid4())[:8]
 
+RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
+
 CHAT_REQUEST_COUNT = 0
 CHAT_SUCCESS_COUNT = 0
 CHAT_ERROR_COUNT = 0
 
 TOTAL_PROCESSING_MS = 0
 TOTAL_RESPONSE_CHARS = 0
+MAX_PROCESSING_MS = 0
 
 PROCESSING_TIMES = []
+RATE_LIMIT_STORE = {}
 
 
 class ChatRequest(BaseModel):
     pergunta: str
+
+
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
+        if parts:
+            return parts[0]
+
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+
+    if request.client and request.client.host:
+        return request.client.host
+
+    return "unknown"
+
+
+def get_request_source(request: Request) -> str:
+    source = request.headers.get("x-request-source", "").strip()
+    if source:
+        return source
+    return "unknown"
+
+
+def is_rate_limited(client_ip: str) -> bool:
+    now = time.time()
+    window_start = now - 60
+
+    if client_ip not in RATE_LIMIT_STORE:
+        RATE_LIMIT_STORE[client_ip] = []
+
+    recent_requests = []
+    for ts in RATE_LIMIT_STORE[client_ip]:
+        if ts >= window_start:
+            recent_requests.append(ts)
+
+    RATE_LIMIT_STORE[client_ip] = recent_requests
+
+    if len(RATE_LIMIT_STORE[client_ip]) >= RATE_LIMIT_PER_MINUTE:
+        return True
+
+    RATE_LIMIT_STORE[client_ip].append(now)
+    return False
+
+
+def update_processing_metrics(processing_ms: int) -> None:
+    global TOTAL_PROCESSING_MS
+    global MAX_PROCESSING_MS
+
+    TOTAL_PROCESSING_MS += processing_ms
+    PROCESSING_TIMES.append(processing_ms)
+
+    if processing_ms > MAX_PROCESSING_MS:
+        MAX_PROCESSING_MS = processing_ms
 
 
 @app.get("/")
@@ -61,13 +122,13 @@ def engine():
     return {
         "engine": ENGINE_NAME,
         "version": ENGINE_VERSION,
-        "model": OPENAI_MODEL
+        "model": OPENAI_MODEL,
+        "build_version": BUILD_VERSION
     }
 
 
 @app.get("/metrics")
 def metrics():
-
     uptime = int(time.time() - START_TIME)
 
     avg_processing_ms = 0
@@ -99,10 +160,12 @@ def metrics():
 
     process = psutil.Process(os.getpid())
     engine_memory_mb = round(process.memory_info().rss / 1024 / 1024, 2)
+    engine_cpu_percent = round(process.cpu_percent(interval=None), 2)
 
     return {
         "engine": ENGINE_NAME,
         "version": ENGINE_VERSION,
+        "build_version": BUILD_VERSION,
         "model": OPENAI_MODEL,
         "engine_instance_id": ENGINE_INSTANCE_ID,
         "engine_started_at": ENGINE_STARTED_AT,
@@ -111,43 +174,43 @@ def metrics():
         "chat_success_total": CHAT_SUCCESS_COUNT,
         "chat_errors_total": CHAT_ERROR_COUNT,
         "avg_processing_ms": avg_processing_ms,
+        "max_processing_ms": MAX_PROCESSING_MS,
         "requests_per_minute": requests_per_minute,
         "success_rate": success_rate,
         "error_rate": error_rate,
         "avg_response_length": avg_response_length,
         "p95_processing_ms": p95_processing_ms,
-        "engine_memory_mb": engine_memory_mb
+        "engine_memory_mb": engine_memory_mb,
+        "engine_cpu_percent": engine_cpu_percent,
+        "rate_limit_per_minute": RATE_LIMIT_PER_MINUTE
     }
 
 
 @app.post("/chat")
-def chat(req: ChatRequest):
-
+def chat(req: ChatRequest, request: Request):
     global CHAT_REQUEST_COUNT
     global CHAT_SUCCESS_COUNT
     global CHAT_ERROR_COUNT
-    global TOTAL_PROCESSING_MS
     global TOTAL_RESPONSE_CHARS
 
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
-
     timestamp = int(time.time())
     timestamp_iso = datetime.now(timezone.utc).isoformat()
-
     start_processing = time.time()
+
+    client_ip = get_client_ip(request)
+    request_source = get_request_source(request)
 
     pergunta = req.pergunta or ""
     pergunta = pergunta.strip()
 
-    if pergunta == "":
+    if is_rate_limited(client_ip):
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
-
-        TOTAL_PROCESSING_MS += processing_ms
-        PROCESSING_TIMES.append(processing_ms)
+        update_processing_metrics(processing_ms)
 
         server_uptime = int(time.time() - START_TIME)
 
@@ -158,13 +221,50 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
+            "openai_latency_ms": 0,
             "server_uptime": server_uptime,
             "chat_requests_total": CHAT_REQUEST_COUNT,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
+            "build_version": BUILD_VERSION,
             "model": OPENAI_MODEL,
+            "request_source": request_source,
+            "pergunta": req.pergunta,
+            "question_length": len(pergunta),
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "tokens_total": 0,
+            "erro": "rate_limit_exceeded"
+        }
+
+    if pergunta == "":
+        CHAT_ERROR_COUNT += 1
+
+        processing_ms = int((time.time() - start_processing) * 1000)
+        update_processing_metrics(processing_ms)
+
+        server_uptime = int(time.time() - START_TIME)
+
+        return {
+            "status": "error",
+            "api_version": API_VERSION,
+            "request_id": request_id,
+            "timestamp": timestamp,
+            "timestamp_iso": timestamp_iso,
+            "processing_ms": processing_ms,
+            "openai_latency_ms": 0,
+            "server_uptime": server_uptime,
+            "chat_requests_total": CHAT_REQUEST_COUNT,
+            "engine": ENGINE_NAME,
+            "engine_version": ENGINE_VERSION,
+            "build_version": BUILD_VERSION,
+            "model": OPENAI_MODEL,
+            "request_source": request_source,
             "pergunta": req.pergunta,
             "question_length": 0,
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "tokens_total": 0,
             "erro": "pergunta_vazia"
         }
 
@@ -179,8 +279,12 @@ def chat(req: ChatRequest):
     }
 
     try:
+        openai_start = time.time()
+
         with httpx.Client(timeout=30.0) as client:
             r = client.post(OPENAI_URL, headers=headers, json=payload)
+
+        openai_latency_ms = int((time.time() - openai_start) * 1000)
 
         data = r.json()
 
@@ -194,17 +298,19 @@ def chat(req: ChatRequest):
         else:
             resposta = str(data)
 
-        processing_ms = int((time.time() - start_processing) * 1000)
+        usage = data.get("usage", {})
+        tokens_input = usage.get("input_tokens", 0)
+        tokens_output = usage.get("output_tokens", 0)
+        tokens_total = usage.get("total_tokens", 0)
 
-        TOTAL_PROCESSING_MS += processing_ms
-        PROCESSING_TIMES.append(processing_ms)
+        processing_ms = int((time.time() - start_processing) * 1000)
+        update_processing_metrics(processing_ms)
 
         CHAT_SUCCESS_COUNT += 1
         TOTAL_RESPONSE_CHARS += len(resposta)
 
         question_length = len(pergunta)
         response_length = len(resposta)
-
         server_uptime = int(time.time() - START_TIME)
 
         return {
@@ -214,28 +320,30 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
+            "openai_latency_ms": openai_latency_ms,
             "server_uptime": server_uptime,
             "chat_requests_total": CHAT_REQUEST_COUNT,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
+            "build_version": BUILD_VERSION,
             "model": OPENAI_MODEL,
+            "request_source": request_source,
             "pergunta": pergunta,
             "question_length": question_length,
             "response_length": response_length,
+            "tokens_input": tokens_input,
+            "tokens_output": tokens_output,
+            "tokens_total": tokens_total,
             "resposta": resposta
         }
 
     except Exception as e:
-
         CHAT_ERROR_COUNT += 1
 
         processing_ms = int((time.time() - start_processing) * 1000)
-
-        TOTAL_PROCESSING_MS += processing_ms
-        PROCESSING_TIMES.append(processing_ms)
+        update_processing_metrics(processing_ms)
 
         question_length = len(pergunta)
-
         server_uptime = int(time.time() - START_TIME)
 
         return {
@@ -245,12 +353,18 @@ def chat(req: ChatRequest):
             "timestamp": timestamp,
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
+            "openai_latency_ms": 0,
             "server_uptime": server_uptime,
             "chat_requests_total": CHAT_REQUEST_COUNT,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
+            "build_version": BUILD_VERSION,
             "model": OPENAI_MODEL,
+            "request_source": request_source,
             "pergunta": pergunta,
             "question_length": question_length,
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "tokens_total": 0,
             "erro": str(e)
         }
