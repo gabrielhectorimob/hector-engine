@@ -5,6 +5,10 @@ import httpx
 
 app = FastAPI()
 
+ENGINE_NAME = "hector-engine"
+ENGINE_VERSION = "1.0"
+OPENAI_MODEL = "gpt-4.1-mini"
+
 RAW_KEY = os.getenv("OPENAI_API_KEY", "")
 
 OPENAI_API_KEY = (
@@ -28,10 +32,18 @@ def root():
 
 @app.get("/health")
 def health():
-
     return {
         "server": "ok",
         "openai_key_loaded": bool(OPENAI_API_KEY)
+    }
+
+
+@app.get("/engine")
+def engine():
+    return {
+        "engine": ENGINE_NAME,
+        "version": ENGINE_VERSION,
+        "model": OPENAI_MODEL
     }
 
 
@@ -44,7 +56,7 @@ def chat(req: ChatRequest):
     }
 
     payload = {
-        "model": "gpt-4.1-mini",
+        "model": OPENAI_MODEL,
         "input": req.pergunta
     }
 
@@ -72,4 +84,5 @@ def chat(req: ChatRequest):
 
         return {
             "erro": str(e)
+        }
         }
