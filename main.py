@@ -1,74 +1,55 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import traceback
+from openai import OpenAI
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct
+import os
 
-# módulos do projeto
-from parser.excel_parser import parse_excel
-from rag.embeddings import create_embedding
-from rag.search import search_documents
+app = FastAPI()
 
-from vector_search import vector_search
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+qdrant = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY")
+)
 
-app = FastAPI(title="Hector Engine")
+COLLECTION = "hector"
 
-
-# -----------------------------
-# MODELO DE PERGUNTA
-# -----------------------------
 
 class Query(BaseModel):
     question: str
-    context: str | None = None
 
-
-# -----------------------------
-# ENDPOINT ROOT
-# -----------------------------
 
 @app.get("/")
 def root():
-    return {"engine": "hector", "status": "running"}
+    return {"engine": "hector running"}
 
-
-# -----------------------------
-# HEALTH CHECK
-# -----------------------------
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-# -----------------------------
-# CONSULTA PRINCIPAL
-# -----------------------------
 
 @app.post("/query")
 def query(q: Query):
 
-    try:
+    embedding = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=q.question
+    ).data[0].embedding
 
-        question = q.question
+    results = qdrant.search(
+        collection_name=COLLECTION,
+        query_vector=embedding,
+        limit=3
+    )
 
-        # embedding da pergunta
-        embedding = create_embedding(question)
+    context = "\n".join([r.payload["text"] for r in results])
 
-        # busca vetorial
-        results = vector_search(embedding)
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Responda baseado no contexto."},
+            {"role": "user", "content": f"Contexto:\n{context}\n\nPergunta:{q.question}"}
+        ]
+    )
 
-        # busca RAG complementar
-        rag_results = search_documents(question)
-
-        return {
-            "question": question,
-            "vector_results": results,
-            "rag_results": rag_results
-        }
-
-    except Exception as e:
-
-        return {
-            "error": str(e),
-            "trace": traceback.format_exc()
-        }
+    return {
+        "answer": completion.choices[0].message.content
+    }
