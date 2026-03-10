@@ -4,7 +4,15 @@ import httpx
 
 app = FastAPI()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+RAW_KEY = os.getenv("OPENAI_API_KEY", "")
+
+OPENAI_API_KEY = (
+    RAW_KEY
+    .replace("\n", "")
+    .replace("\r", "")
+    .strip()
+)
+
 OPENAI_URL = "https://api.openai.com/v1/responses"
 
 
@@ -15,25 +23,15 @@ def root():
 
 @app.get("/debug-env")
 def debug_env():
-    if not OPENAI_API_KEY:
-        return {
-            "success": False,
-            "error": "OPENAI_API_KEY not found"
-        }
-
     return {
-        "success": True,
+        "raw_length": len(RAW_KEY),
+        "clean_length": len(OPENAI_API_KEY),
         "key_prefix": OPENAI_API_KEY[:7]
     }
 
 
 @app.get("/debug-openai-http")
 def debug_openai_http():
-    if not OPENAI_API_KEY:
-        return {
-            "success": False,
-            "error": "OPENAI_API_KEY not found"
-        }
 
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -47,12 +45,12 @@ def debug_openai_http():
 
     try:
         with httpx.Client(timeout=30.0) as client:
-            response = client.post(OPENAI_URL, headers=headers, json=payload)
+            r = client.post(OPENAI_URL, headers=headers, json=payload)
 
         return {
-            "success": response.is_success,
-            "status_code": response.status_code,
-            "body": response.json()
+            "success": r.is_success,
+            "status_code": r.status_code,
+            "body": r.json()
         }
 
     except Exception as e:
