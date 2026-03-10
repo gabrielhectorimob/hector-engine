@@ -14,10 +14,17 @@ class HectorResponseOrchestrator:
             question
         )
 
-        return (
-            "HECTOR ENGINE — EXECUÇÃO REAL ATIVA\n\n"
-            f"Pergunta: {question}\n"
-            f"Domínio: {result.classification.domain}\n"
-            f"Motor selecionado: {result.routing.target_engine}\n\n"
-            f"Resultado do motor: {engine_output}"
-        )
+        return {
+            "mode": "engine_execution",
+            "question": question,
+            "brain": {
+                "question_type": result.classification.question_type,
+                "domain": result.classification.domain,
+                "intent": result.intent.intent,
+                "route": result.routing.route,
+                "target_engine": result.routing.target_engine,
+                "execution_mode": result.execution_plan.execution_mode,
+                "steps": result.execution_plan.steps
+            },
+            "engine_output": engine_output
+        }
