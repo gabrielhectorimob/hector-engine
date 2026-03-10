@@ -30,6 +30,7 @@ ENGINE_INSTANCE_ID = str(uuid.uuid4())[:8]
 
 CHAT_REQUEST_COUNT = 0
 CHAT_ERROR_COUNT = 0
+CHAT_SUCCESS_COUNT = 0
 TOTAL_PROCESSING_MS = 0
 
 
@@ -80,6 +81,7 @@ def metrics():
         "engine_started_at": ENGINE_STARTED_AT,
         "uptime_seconds": uptime,
         "chat_requests_total": CHAT_REQUEST_COUNT,
+        "chat_success_total": CHAT_SUCCESS_COUNT,
         "chat_errors_total": CHAT_ERROR_COUNT,
         "avg_processing_ms": avg_processing_ms,
         "requests_per_minute": requests_per_minute
@@ -91,6 +93,7 @@ def chat(req: ChatRequest):
 
     global CHAT_REQUEST_COUNT
     global CHAT_ERROR_COUNT
+    global CHAT_SUCCESS_COUNT
     global TOTAL_PROCESSING_MS
 
     CHAT_REQUEST_COUNT += 1
@@ -158,6 +161,8 @@ def chat(req: ChatRequest):
 
         processing_ms = int((time.time() - start_processing) * 1000)
         TOTAL_PROCESSING_MS += processing_ms
+
+        CHAT_SUCCESS_COUNT += 1
 
         question_length = len(pergunta)
         response_length = len(resposta)
