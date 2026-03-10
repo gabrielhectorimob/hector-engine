@@ -26,6 +26,7 @@ OPENAI_URL = "https://api.openai.com/v1/responses"
 
 START_TIME = time.time()
 ENGINE_STARTED_AT = datetime.now(timezone.utc).isoformat()
+ENGINE_INSTANCE_ID = str(uuid.uuid4())[:8]
 
 CHAT_REQUEST_COUNT = 0
 CHAT_ERROR_COUNT = 0
@@ -71,6 +72,7 @@ def metrics():
         "engine": ENGINE_NAME,
         "version": ENGINE_VERSION,
         "model": OPENAI_MODEL,
+        "engine_instance_id": ENGINE_INSTANCE_ID,
         "engine_started_at": ENGINE_STARTED_AT,
         "uptime_seconds": uptime,
         "chat_requests_total": CHAT_REQUEST_COUNT,
