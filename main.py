@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 import os
 import httpx
 
@@ -16,22 +17,17 @@ OPENAI_API_KEY = (
 OPENAI_URL = "https://api.openai.com/v1/responses"
 
 
+class ChatRequest(BaseModel):
+    pergunta: str
+
+
 @app.get("/")
 def root():
     return {"status": "running"}
 
 
-@app.get("/debug-env")
-def debug_env():
-    return {
-        "raw_length": len(RAW_KEY),
-        "clean_length": len(OPENAI_API_KEY),
-        "key_prefix": OPENAI_API_KEY[:7]
-    }
-
-
-@app.get("/debug-openai-http")
-def debug_openai_http():
+@app.post("/chat")
+def chat(req: ChatRequest):
 
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -40,22 +36,10 @@ def debug_openai_http():
 
     payload = {
         "model": "gpt-4.1-mini",
-        "input": "Responda apenas OK"
+        "input": req.pergunta
     }
 
-    try:
-        with httpx.Client(timeout=30.0) as client:
-            r = client.post(OPENAI_URL, headers=headers, json=payload)
+    with httpx.Client(timeout=30.0) as client:
+        r = client.post(OPENAI_URL, headers=headers, json=payload)
 
-        return {
-            "success": r.is_success,
-            "status_code": r.status_code,
-            "body": r.json()
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error_type": type(e).__name__,
-            "error": str(e)
-        }
+    return r.json()
