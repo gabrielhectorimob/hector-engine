@@ -80,6 +80,30 @@ def chat(req: ChatRequest):
 
     start_processing = time.time()
 
+    pergunta = req.pergunta or ""
+    pergunta = pergunta.strip()
+
+    if pergunta == "":
+        processing_ms = int((time.time() - start_processing) * 1000)
+        server_uptime = int(time.time() - START_TIME)
+
+        return {
+            "status": "error",
+            "api_version": API_VERSION,
+            "request_id": request_id,
+            "timestamp": timestamp,
+            "timestamp_iso": timestamp_iso,
+            "processing_ms": processing_ms,
+            "server_uptime": server_uptime,
+            "chat_requests_total": CHAT_REQUEST_COUNT,
+            "engine": ENGINE_NAME,
+            "engine_version": ENGINE_VERSION,
+            "model": OPENAI_MODEL,
+            "pergunta": req.pergunta,
+            "question_length": 0,
+            "erro": "pergunta_vazia"
+        }
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
@@ -87,7 +111,7 @@ def chat(req: ChatRequest):
 
     payload = {
         "model": OPENAI_MODEL,
-        "input": req.pergunta
+        "input": pergunta
     }
 
     try:
@@ -107,7 +131,7 @@ def chat(req: ChatRequest):
             resposta = str(data)
 
         processing_ms = int((time.time() - start_processing) * 1000)
-        question_length = len(req.pergunta)
+        question_length = len(pergunta)
         response_length = len(resposta)
         server_uptime = int(time.time() - START_TIME)
 
@@ -123,7 +147,7 @@ def chat(req: ChatRequest):
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
-            "pergunta": req.pergunta,
+            "pergunta": pergunta,
             "question_length": question_length,
             "response_length": response_length,
             "resposta": resposta
@@ -132,7 +156,7 @@ def chat(req: ChatRequest):
     except Exception as e:
 
         processing_ms = int((time.time() - start_processing) * 1000)
-        question_length = len(req.pergunta)
+        question_length = len(pergunta)
         server_uptime = int(time.time() - START_TIME)
 
         return {
@@ -147,7 +171,7 @@ def chat(req: ChatRequest):
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
-            "pergunta": req.pergunta,
+            "pergunta": pergunta,
             "question_length": question_length,
             "erro": str(e)
         }
