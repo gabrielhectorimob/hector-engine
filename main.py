@@ -4,6 +4,7 @@ import os
 import httpx
 import time
 import uuid
+from datetime import datetime, timezone
 
 app = FastAPI()
 
@@ -73,7 +74,9 @@ def chat(req: ChatRequest):
     CHAT_REQUEST_COUNT += 1
 
     request_id = str(uuid.uuid4())[:8]
+
     timestamp = int(time.time())
+    timestamp_iso = datetime.now(timezone.utc).isoformat()
 
     start_processing = time.time()
 
@@ -112,6 +115,7 @@ def chat(req: ChatRequest):
             "api_version": API_VERSION,
             "request_id": request_id,
             "timestamp": timestamp,
+            "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
@@ -130,6 +134,7 @@ def chat(req: ChatRequest):
             "api_version": API_VERSION,
             "request_id": request_id,
             "timestamp": timestamp,
+            "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
