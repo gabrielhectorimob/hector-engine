@@ -1,55 +1,70 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from openai import OpenAI
-from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct
+import traceback
 import os
+
+# =========================================
+# APP
+# =========================================
 
 app = FastAPI()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-qdrant = QdrantClient(
-    url=os.getenv("QDRANT_URL"),
-    api_key=os.getenv("QDRANT_API_KEY")
-)
-
-COLLECTION = "hector"
-
+# =========================================
+# MODELO DE REQUISIÇÃO
+# =========================================
 
 class Query(BaseModel):
     question: str
 
+# =========================================
+# ROOT
+# =========================================
 
 @app.get("/")
 def root():
     return {"engine": "hector running"}
 
+# =========================================
+# FUNÇÃO DE BUSCA (TEMPORÁRIA PARA TESTE)
+# =========================================
+
+def run_query(question: str):
+
+    # aqui você depois conecta:
+    # rag.search
+    # embeddings
+    # openai
+    # qdrant
+
+    return f"Pergunta recebida: {question}"
+
+# =========================================
+# ENDPOINT QUERY
+# =========================================
 
 @app.post("/query")
-def query(q: Query):
+async def query(q: Query):
 
-    embedding = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=q.question
-    ).data[0].embedding
+    print("=================================")
+    print("QUESTION RECEIVED:", q.question)
+    print("=================================")
 
-    results = qdrant.search(
-        collection_name=COLLECTION,
-        query_vector=embedding,
-        limit=3
-    )
+    try:
 
-    context = "\n".join([r.payload["text"] for r in results])
+        result = run_query(q.question)
 
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Responda baseado no contexto."},
-            {"role": "user", "content": f"Contexto:\n{context}\n\nPergunta:{q.question}"}
-        ]
-    )
+        print("RESULT:", result)
 
-    return {
-        "answer": completion.choices[0].message.content
-    }
+        return {
+            "answer": result
+        }
+
+    except Exception as e:
+
+        print("ERROR OCCURRED")
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
