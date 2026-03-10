@@ -105,6 +105,8 @@ def chat(req: ChatRequest):
 
         processing_ms = int((time.time() - start_processing) * 1000)
 
+        response_length = len(resposta)
+
         return {
             "status": "ok",
             "api_version": API_VERSION,
@@ -115,6 +117,7 @@ def chat(req: ChatRequest):
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
             "pergunta": req.pergunta,
+            "response_length": response_length,
             "resposta": resposta
         }
 
