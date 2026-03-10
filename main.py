@@ -74,6 +74,8 @@ def chat(req: ChatRequest):
     request_id = str(uuid.uuid4())[:8]
     timestamp = int(time.time())
 
+    start_processing = time.time()
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
@@ -100,16 +102,22 @@ def chat(req: ChatRequest):
         else:
             resposta = str(data)
 
+        processing_ms = int((time.time() - start_processing) * 1000)
+
         return {
             "request_id": request_id,
             "timestamp": timestamp,
+            "processing_ms": processing_ms,
             "resposta": resposta
         }
 
     except Exception as e:
 
+        processing_ms = int((time.time() - start_processing) * 1000)
+
         return {
             "request_id": request_id,
             "timestamp": timestamp,
+            "processing_ms": processing_ms,
             "erro": str(e)
         }
