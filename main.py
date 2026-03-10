@@ -107,10 +107,8 @@ def chat(req: ChatRequest):
             resposta = str(data)
 
         processing_ms = int((time.time() - start_processing) * 1000)
-
         question_length = len(req.pergunta)
         response_length = len(resposta)
-
         server_uptime = int(time.time() - START_TIME)
 
         return {
@@ -121,6 +119,7 @@ def chat(req: ChatRequest):
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
             "server_uptime": server_uptime,
+            "chat_requests_total": CHAT_REQUEST_COUNT,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
@@ -144,6 +143,7 @@ def chat(req: ChatRequest):
             "timestamp_iso": timestamp_iso,
             "processing_ms": processing_ms,
             "server_uptime": server_uptime,
+            "chat_requests_total": CHAT_REQUEST_COUNT,
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
