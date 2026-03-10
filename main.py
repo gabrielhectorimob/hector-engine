@@ -108,8 +108,9 @@ def chat(req: ChatRequest):
             "request_id": request_id,
             "timestamp": timestamp,
             "processing_ms": processing_ms,
-            "model": OPENAI_MODEL,
+            "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
+            "model": OPENAI_MODEL,
             "resposta": resposta
         }
 
@@ -121,7 +122,8 @@ def chat(req: ChatRequest):
             "request_id": request_id,
             "timestamp": timestamp,
             "processing_ms": processing_ms,
-            "model": OPENAI_MODEL,
+            "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
+            "model": OPENAI_MODEL,
             "erro": str(e)
         }
