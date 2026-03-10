@@ -68,6 +68,10 @@ def metrics():
     if CHAT_REQUEST_COUNT > 0:
         avg_processing_ms = int(TOTAL_PROCESSING_MS / CHAT_REQUEST_COUNT)
 
+    requests_per_minute = 0
+    if uptime > 0:
+        requests_per_minute = round((CHAT_REQUEST_COUNT / uptime) * 60, 2)
+
     return {
         "engine": ENGINE_NAME,
         "version": ENGINE_VERSION,
@@ -77,7 +81,8 @@ def metrics():
         "uptime_seconds": uptime,
         "chat_requests_total": CHAT_REQUEST_COUNT,
         "chat_errors_total": CHAT_ERROR_COUNT,
-        "avg_processing_ms": avg_processing_ms
+        "avg_processing_ms": avg_processing_ms,
+        "requests_per_minute": requests_per_minute
     }
 
 
