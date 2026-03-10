@@ -1,67 +1,44 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from openai import OpenAI
 import traceback
-import os
-
-# =========================================
-# APP
-# =========================================
 
 app = FastAPI()
 
-# =========================================
-# MODELO DE REQUISIÇÃO
-# =========================================
+client = OpenAI()
 
 class Query(BaseModel):
     question: str
-
-# =========================================
-# ROOT
-# =========================================
 
 @app.get("/")
 def root():
     return {"engine": "hector running"}
 
-# =========================================
-# FUNÇÃO DE BUSCA (TEMPORÁRIA PARA TESTE)
-# =========================================
-
 def run_query(question: str):
 
-    # aqui você depois conecta:
-    # rag.search
-    # embeddings
-    # openai
-    # qdrant
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": "Você é o Hector, especialista em loteamentos."},
+            {"role": "user", "content": question}
+        ]
+    )
 
-    return f"Pergunta recebida: {question}"
-
-# =========================================
-# ENDPOINT QUERY
-# =========================================
+    return response.choices[0].message.content
 
 @app.post("/query")
 async def query(q: Query):
 
-    print("=================================")
-    print("QUESTION RECEIVED:", q.question)
-    print("=================================")
-
     try:
 
-        result = run_query(q.question)
-
-        print("RESULT:", result)
+        answer = run_query(q.question)
 
         return {
-            "answer": result
+            "answer": answer
         }
 
     except Exception as e:
 
-        print("ERROR OCCURRED")
         traceback.print_exc()
 
         raise HTTPException(
