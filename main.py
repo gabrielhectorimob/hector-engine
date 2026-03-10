@@ -1,9 +1,15 @@
 from fastapi import FastAPI
 from openai import OpenAI
+import httpx
+import certifi
 
 app = FastAPI()
 
-client = OpenAI()
+client = OpenAI(
+    http_client=httpx.Client(
+        verify=certifi.where()
+    )
+)
 
 @app.get("/")
 def root():
