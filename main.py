@@ -114,6 +114,7 @@ def chat(req: ChatRequest):
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
+            "pergunta": req.pergunta,
             "resposta": resposta
         }
 
@@ -130,5 +131,6 @@ def chat(req: ChatRequest):
             "engine": ENGINE_NAME,
             "engine_version": ENGINE_VERSION,
             "model": OPENAI_MODEL,
+            "pergunta": req.pergunta,
             "erro": str(e)
         }
