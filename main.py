@@ -6,55 +6,38 @@ import traceback
 
 app = FastAPI()
 
-# =========================
-# OPENAI CONFIG
-# =========================
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-if OPENAI_API_KEY is None:
+if not OPENAI_API_KEY:
     raise Exception("OPENAI_API_KEY not configured")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# =========================
-# MODELO
-# =========================
 class Query(BaseModel):
     question: str
 
-# =========================
-# ROTAS
-# =========================
+
 @app.get("/")
 def root():
     return {"engine": "hector running"}
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
 
 @app.post("/query")
 def query(data: Query):
 
     try:
 
-        completion = client.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": "Você é o Hector, especialista em loteamentos e análise imobiliária."
-                },
-                {
-                    "role": "user",
-                    "content": data.question
-                }
+                {"role": "system", "content": "Você é o Hector especialista em loteamentos."},
+                {"role": "user", "content": data.question}
             ]
         )
 
-        return {
-            "answer": completion.choices[0].message.content
-        }
+        answer = response.choices[0].message.content
+
+        return {"answer": answer}
 
     except Exception as e:
 
