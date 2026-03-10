@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-pydantic
-httpx
-openai>=1.13.3
-psutil
-pandas
-openpyxl
