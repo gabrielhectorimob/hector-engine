@@ -1,22 +1,12 @@
 from fastapi import FastAPI
 from openai import OpenAI
-import httpx
-import certifi
 import os
 
 app = FastAPI()
 
-# pega API key do Railway
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# cliente OpenAI
-client = OpenAI(
-    api_key=OPENAI_API_KEY,
-    http_client=httpx.Client(
-        verify=certifi.where(),
-        timeout=30.0
-    )
-)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 @app.get("/")
 def root():
