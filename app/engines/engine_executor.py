@@ -13,7 +13,8 @@ class EngineExecutor:
 
         if routing.target_engine == "financial_engine":
 
-            example_cashflow = [
+            # fluxo exemplo temporário até integração com planilha
+            cashflow = [
                 -2500000,
                 0,
                 0,
@@ -25,16 +26,27 @@ class EngineExecutor:
             ]
 
             result = self.financial_engine.evaluate_project(
-                example_cashflow,
+                cashflow,
                 0.015
             )
 
+            context = {
+                "benchmark_price": self.kb.get_benchmark_price("espirito_santo_litoral"),
+                "expected_sales_velocity": self.kb.get_expected_sales_velocity("loteamento_premium"),
+                "market_context": self.kb.market_context()
+            }
+
             return {
                 "engine": "financial_engine",
-                "result": result
+                "execution_mode": "real_engine",
+                "question": question,
+                "result": result,
+                "context": context
             }
 
         return {
             "engine": "fallback",
+            "execution_mode": "none",
+            "question": question,
             "result": "engine not implemented"
         }
